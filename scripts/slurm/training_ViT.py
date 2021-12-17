@@ -45,8 +45,6 @@ from vit_pytorch.efficient import ViT
 from linformer import Linformer
 from vit_pytorch import ViT as ViT_modified
 
-#files = glob.glob('/home/mvasist/scripts_new/datasets/dataset/_/onehot/*.h5')
-
 class HDF5Dataset(data.Dataset):
     """Represents an abstract HDF5 dataset.
     
@@ -65,10 +63,9 @@ class HDF5Dataset(data.Dataset):
 
         # Search for all h5 files
         p = Path(file_path)
-        #print(p)
         assert(p.is_dir())
         
-        files = sorted(p.glob('*.h5'))
+        files = sorted(p.glob('*.h5'))     ###################################################
         if len(files) < 1:
             raise RuntimeError('No hdf5 datasets found')
 
@@ -80,16 +77,12 @@ class HDF5Dataset(data.Dataset):
         x = self.get_data("data", index) #cache data
         x = torch.from_numpy(x)
         x = x.unsqueeze_(1)
-        #x = transforms.Lambda(lambda h: h.repeat(1, 3, 1, 1))(x) #adding 3 channels 
         x = torch.nn.functional.pad(x, (0, 2, 0, 0)) #padding - 962 div by 13
-        #x = x.view(-1,3,1,962)
-        #print('get_item: ', x.size())
+
 
         # get label
         y = self.get_data("label", index) 
         y = torch.from_numpy(y)
-        #y = y.view(-1,1)
-        #print('len: ', y.size())
         return (x, y)
 
     def __len__(self):
@@ -99,7 +92,6 @@ class HDF5Dataset(data.Dataset):
         with h5py.File(file_path, 'r') as h5_file:
             # Walk through all datasets, extracting them
             for dname, ds in h5_file.items():
-                #print(dname, ds)
                 # if data is not loaded its cache index is -1
                 idx = -1
                 if load_data:
@@ -118,7 +110,6 @@ class HDF5Dataset(data.Dataset):
         """
         with h5py.File(file_path,'r') as h5_file:
             for dname, ds in h5_file.items():
-                #print(dname)
                 idx = self._add_to_cache(h5_file[dname][()], file_path) #0 for data, 1 for labels
 
                 # find the beginning index of the hdf5 file we are looking for
@@ -173,9 +164,7 @@ class HDF5Dataset(data.Dataset):
         cache_idx = self.get_data_infos(type)[i]['cache_idx']
         return self.data_cache[fp][cache_idx]
 
-#/home/mvasist/scripts_new/datasets/dataset/_/onehot/
-dataset = HDF5Dataset('/scratch/mvasist/data/', load_data=False, data_cache_size=2)
-# print(len(dataset))
+dataset = HDF5Dataset('/home/mvasist/scripts_new/datasets/dataset/_/onehot/', load_data=False, data_cache_size=4)
 
 split = [0.9, 0.1]
 split_train = '0.9'
@@ -187,7 +176,6 @@ s = int(np.floor(split[1] * len(dataset)))
 np.random.seed(111)
 np.random.shuffle(indices)
 train_indices, val_indices = indices[s:], indices[:s]
-#print(train_indices, val_indices)
 train_sampler, val_sampler = SubsetRandomSampler(train_indices), SubsetRandomSampler(val_indices)
 
 train_dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=8, sampler=train_sampler)
@@ -196,22 +184,11 @@ val_dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=8, sampl
 dataloaders = {}
 dataloaders['train'], dataloaders['val'] = train_dataloader, val_dataloader
 
-def binary_acc(y_pred, y_test):
-    #print(y_pred.argmax(axis=1), y_test.argmax(axis=1))
-    correct_results_sum = (y_pred.argmax(axis=1) == y_test.argmax(axis=1)).sum().float()
-    #print('crs', y_pred.argmax(axis=1) == y_test.argmax(axis=1), correct_results_sum, len(y_test))
-    acc = correct_results_sum/len(y_test)
-    acc = torch.round(acc * 100)
-    
-    return acc
-
-dataset_size = len(dataset)
-
 #962 = 13 * 74  - div into 74 patches 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #torch.device("cpu") #
 
-model = ViT_modified(n_classes = 2,
+model = ViT_modified(n_classes = 1,
                     image_size = (1, 962),  # image size is a tuple of (height, width)
                     patch_size = (1, 13),    # patch size is a tuple of (height, width)
                     dim = 16,
@@ -220,17 +197,7 @@ model = ViT_modified(n_classes = 2,
                     mlp_dim = 512,
                     dropout = 0.1,
                     emb_dropout = 0.1
-                )
-
-if torch.cuda.device_count() > 1:
-  print("Let's use", torch.cuda.device_count(), "GPUs!")
-  model = nn.DataParallel(model)
-
-model.to(device)
-
-import gc
-gc.collect()
-torch.cuda.empty_cache()
+                ).to(device)
 
 #train
 
@@ -247,39 +214,28 @@ def train(n_epochs, model):
             else:
                 s = 1
                 model.eval()   # Set model to evaluate mode
-            
+                        
             #both    
             running_loss = 0.0
             a = 0 
             for batch_idx, sample in enumerate(dataloaders[phase]):
-                #print(batch_idx)
                 inputs = sample[0].view(-1,1,1,962).to(device)
-#                 print(inputs.element_size() * inputs.nelement() /1e6, 'MB')
-                target = sample[1].view(-1,2).long().to(device)
-#                 print(target.element_size() * target.nelement() /1e6, 'MB')
-#                 print('boo', inputs.size(), target.size())
+                target = sample[1].view(-1,2)
+                target = target[:,0].unsqueeze_(1).to(device)
                 optimizer.zero_grad()
-#                 print('ok1')
 
                 with torch.set_grad_enabled(phase == 'train'):
-#                     print(np.shape(inputs))
                     output = model(inputs) #[None, ...]
-                    #print('output', output)
-                    #print(target.argmax(axis=1), target)
-                    loss = criterion(torch.squeeze(output), torch.squeeze(target.argmax(axis=1)))
-                    #print('loss: ', loss)
-                    acc = binary_acc(torch.squeeze(output), torch.squeeze(target))
-#                     print('acc done')
+                    loss = criterion(output, target)
+                    acc = 0 #binary_acc(output, target)
                     
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()   
-#                         print('optimizer done')
                 
                     running_loss += 1 * loss.item() * inputs.size(0) #loss for the phase/whole dataset
                 
-                if batch_idx % 1 == 0: 
-                    #(batch_idx+1)*len(sample['input'])
+                if batch_idx % 100 == 0: 
                     a+= len(sample[0])
                     print('{} epoch: {} [{}/{} ({:0.0f}%)]\tLoss: {:.6f}\tAcc: {:.2f}'.format(phase,epoch,\
                             a,int(np.ceil(len(dataset)*split[s])),np.floor((100.*a)/(len(dataset)*split[s])), loss.item(), acc))
@@ -301,15 +257,14 @@ def train(n_epochs, model):
                     
 #         print('--------------------------------------------------------------------')
         
-
 nb_epoch = 100
-criterion = nn.CrossEntropyLoss() #nn.BCELoss()
+criterion = nn.BCEWithLogitsLoss() 
 # summary(model, (1, 1, 960))
 
 optimizer = optim.Adam(model.parameters(), lr=float(0.001))
 
 model_dir = '/home/mvasist/scripts_new/model/'
-metrics_path = os.path.join(model_dir, 'metrics__vit_sh.json')
+metrics_path = os.path.join(model_dir, 'metrics_vit_sh.json')
 
 metrics = {
     'model': model_dir,
@@ -327,7 +282,3 @@ metrics = {
 }
 
 train(nb_epoch, model)
-
-end = time.time()
-
-print('it takes: ', (end-start)/60, ' minutes')
