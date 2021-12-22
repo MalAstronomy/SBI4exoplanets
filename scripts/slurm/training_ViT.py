@@ -184,6 +184,8 @@ val_dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=8, sampl
 dataloaders = {}
 dataloaders['train'], dataloaders['val'] = train_dataloader, val_dataloader
 
+dataset_size = len(dataset)
+
 #962 = 13 * 74  - div into 74 patches 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #torch.device("cpu") #
@@ -236,7 +238,7 @@ def train(n_epochs, model):
                     running_loss += 1 * loss.item() * inputs.size(0) #loss for the phase/whole dataset
                 
                 if batch_idx % 100 == 0: 
-                    a+= len(sample[0])
+                    a+= len(sample[0])*100
                     print('{} epoch: {} [{}/{} ({:0.0f}%)]\tLoss: {:.6f}\tAcc: {:.2f}'.format(phase,epoch,\
                             a,int(np.ceil(len(dataset)*split[s])),np.floor((100.*a)/(len(dataset)*split[s])), loss.item(), acc))
                                 
