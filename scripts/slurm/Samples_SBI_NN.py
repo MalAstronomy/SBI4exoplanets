@@ -59,7 +59,9 @@ x = torch.from_numpy(comb_np_array_x).type(torch.float32)
 comb_np_array_T = np.vstack(T)
 th_reduced = torch.from_numpy(comb_np_array_T).type(torch.float32)
 
-inference = inference.append_simulations(th_reduced, x)
+x_norm = torch.nn.functional.normalize(x, dim=1)
+
+inference = inference.append_simulations(th_reduced, x_norm)
 # inference = inference.append_simulations(th_reduced.to(device), x.to(device))
 
 density_estimator = inference.train()

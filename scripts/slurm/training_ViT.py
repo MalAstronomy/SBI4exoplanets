@@ -251,7 +251,7 @@ def train(n_epochs, model):
                 if epoch ==  (n_epochs-1) or running_loss < best_loss:
                     print('saving')
                     best_loss = running_loss
-                    model_path = os.path.join(model_dir, 'model_vit_sh.pth')
+                    model_path = os.path.join(model_dir, 'model_vit_norm.pth')
                     torch.save(model.state_dict(), model_path)
                     
         with open(metrics_path, 'w') as f:
@@ -266,7 +266,7 @@ criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters(), lr=float(0.001))
 
 model_dir = '/home/mvasist/scripts_new/model/'
-metrics_path = os.path.join(model_dir, 'metrics_vit_sh.json')
+metrics_path = os.path.join(model_dir, 'metrics_vit_norm.json')
 
 metrics = {
     'model': model_dir,
