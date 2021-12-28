@@ -41,9 +41,9 @@ import torchvision
 from torchvision import datasets, transforms, models
 from torchsummary import summary
 
-from vit_pytorch.efficient import ViT
-from linformer import Linformer
-from vit_pytorch import ViT as ViT_modified
+import sys
+sys.path.insert(0, './../')
+from ViT_modif import ViT_modified
 
 class HDF5Dataset(data.Dataset):
     """Represents an abstract HDF5 dataset.
@@ -190,16 +190,18 @@ dataset_size = len(dataset)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #torch.device("cpu") #
 
-model_ = ViT_modified(n_classes = 1,
-                    image_size = (1, 962),  # image size is a tuple of (height, width)
-                    patch_size = (1, 13),    # patch size is a tuple of (height, width)
-                    dim = 16,
-                    depth = 3,
-                    heads = 16,
-                    mlp_dim = 512,
-                    dropout = 0.1,
-                    emb_dropout = 0.1
-                )
+model_ = ViT_modified(
+    image_size = (1, 962),
+    patch_size = (1, 13),
+    num_classes = 1,
+    channels = 1,
+    dim = 16,
+    depth = 3,
+    heads = 16,
+    mlp_dim = 512,
+    dropout = 0.1,
+    emb_dropout = 0.1
+)
 
 model = nn.DataParallel(model_).to(device)
 
@@ -253,7 +255,7 @@ def train(n_epochs, model):
                 if epoch ==  (n_epochs-1) or running_loss < best_loss:
                     print('saving')
                     best_loss = running_loss
-                    model_path = os.path.join(model_dir, 'model_vit_norm.pth')
+                    model_path = os.path.join(model_dir, 'model_vit_mod.pth')
                     torch.save(model.state_dict(), model_path)
                     
         with open(metrics_path, 'w') as f:
@@ -268,7 +270,7 @@ criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters(), lr=float(0.001))
 
 model_dir = '/home/mvasist/scripts_new/model/'
-metrics_path = os.path.join(model_dir, 'metrics_vit_norm.json')
+metrics_path = os.path.join(model_dir, 'metrics_vit_mod.json')
 
 metrics = {
     'model': model_dir,
