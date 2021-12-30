@@ -1,13 +1,14 @@
-import vit_pytorch.vit_original as ViT
+import vit_pytorch.vit as ViT
 import torch
 from torchsummary import summary
 from torch import nn
 
 
 class ViT_modified(nn.Module):
-    def __init__(self,  image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, pool = 'cls', channels = 1, dim_head = 64, dropout = 0., emb_dropout = 0.):
+    def __init__(self,  image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, pool = 'cls', channels = 1, dim_head = 64, dropout = 0., emb_dropout = 0., device="cpu"):
         super().__init__()
 
+        self.device = device
         image_height, image_width = ViT.pair(image_size)
         patch_height, patch_width = ViT.pair(patch_size)
 
@@ -38,8 +39,8 @@ class ViT_modified(nn.Module):
 
     def forward(self, image):
             
-        img_log = (torch.log(img[:,:,:,13:])-torch.log(torch.exp(torch.Tensor([-18.]))))/torch.log(torch.exp(torch.Tensor([6.])))
-        x = self.to_patch_embedding(img_log)
+        img_log = (torch.log(image[:,:,:,13:])-torch.log(torch.exp(torch.Tensor([-18.]))))/torch.log(torch.exp(torch.Tensor([6.])))
+        x = self.to_patch_embedding(img_log.to(self.device))
         b, n, _ = x.shape
 
         cls_tokens = ViT.repeat(self.cls_token, '() n d -> b n d', b = b)
@@ -50,7 +51,7 @@ class ViT_modified(nn.Module):
         x = self.transformer(x)
         x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
         x = self.to_latent(x)
-        params = torch.squeeze(img[:,:,:,:13], dim=1)
+        params = torch.squeeze(image[:,:,:,:13], dim=1)
         params = torch.squeeze(params, dim = 1)
         
         x = torch.cat((params,x),dim=1)

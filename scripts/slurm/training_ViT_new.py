@@ -200,7 +200,8 @@ model_ = ViT_modified(
     heads = 16,
     mlp_dim = 512,
     dropout = 0.1,
-    emb_dropout = 0.1
+    emb_dropout = 0.1, 
+    device = device
 )
 
 model = nn.DataParallel(model_).to(device)
@@ -263,7 +264,7 @@ def train(n_epochs, model):
                     
 #         print('--------------------------------------------------------------------')
         
-nb_epoch = 100
+nb_epoch = 150
 criterion = nn.BCEWithLogitsLoss() 
 # summary(model, (1, 1, 960))
 
