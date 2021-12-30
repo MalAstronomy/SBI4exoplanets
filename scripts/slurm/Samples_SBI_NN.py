@@ -15,6 +15,7 @@ from petitRADTRANS import nat_cst as nc
 from petitRADTRANS.retrieval.parameter import Parameter
 from petitRADTRANS.retrieval.models import emission_model_diseq
 
+import sbi
 from sbi.inference import SNRE_A, SNRE, prepare_for_sbi, simulate_for_sbi, SNPE_A
 from sbi.utils.get_nn_models import posterior_nn
 from sbi import utils as utils
@@ -34,7 +35,6 @@ gc.collect()
 torch.cuda.empty_cache()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
 
 Prior= utils.BoxUniform(low=torch.tensor([0.1, -1.5, -6.0, -3.5, -3.5, 2.0, 0.7, 300.0, 0., 0., 0.,\
                                   1., 0. ]), \
@@ -52,16 +52,20 @@ for i, file_path in enumerate(glob.iglob('/home/mvasist/scripts_new/datasets/dat
         spec = h5_file['data'][()]
         T.append(spec[:100, 0, :13])
         X.append(spec[:100, 0, 13:])
-    if i==36000: break
+    if i==10000: break
+    
             
 comb_np_array_x = np.vstack(X)
 x = torch.from_numpy(comb_np_array_x).type(torch.float32)
 comb_np_array_T = np.vstack(T)
 th_reduced = torch.from_numpy(comb_np_array_T).type(torch.float32)
 
-x_norm = torch.nn.functional.normalize(x, dim=1)
+# x_norm = torch.nn.functional.normalize(x, dim=1)
 
-inference = inference.append_simulations(th_reduced, x_norm)
+x_log = (torch.log(x)-torch.log(torch.exp(torch.Tensor([-18.]))))/torch.log(torch.exp(torch.Tensor([6.])))
+inference = inference.append_simulations(th_reduced, x_log)
+
+# inference = inference.append_simulations(th_reduced, x_norm)
 # inference = inference.append_simulations(th_reduced.to(device), x.to(device))
 
 density_estimator = inference.train()
@@ -84,8 +88,8 @@ time_taken = (end-start)/3600  #hrs
 print('time taken for sampling: ', (end-start)/3600)
 # Saving the samples file
 
-df_samples = pd.DataFrame(samples.numpy())
-df_samples.to_csv('/home/mvasist/samples_new/samples_snpe_mlp__3_6MSim_10kSampl.csv',mode='a', header=False)
+df_samples = pd.DataFrame(samples.cpu().numpy())
+df_samples.to_csv('/home/mvasist/samples_new/samples_snpe_mlp__100kSim_10kSampl_log.csv',mode='a', header=False)
 
-df_lnprob = pd.DataFrame(log_probability.numpy())
-df_lnprob.to_csv('/home/mvasist/samples_new/lnprob_snpe_mlp__3_6MSim_10kSampl.csv',mode='a', header=False)
+df_lnprob = pd.DataFrame(log_probability.cpu().numpy())
+df_lnprob.to_csv('/home/mvasist/samples_new/lnprob_snpe_mlp__100kSim_10kSampl_log.csv',mode='a', header=False)
